@@ -1,0 +1,594 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>클래식 테트리스</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-image: url('image.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+        }
+
+        /* 배경 이미지 가독성을 위한 어두운 오버레이 */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.65);
+            z-index: -1;
+        }
+
+        .game-container {
+            display: flex;
+            background: rgba(20, 20, 30, 0.85);
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            gap: 25px;
+            max-width: 100%;
+        }
+
+        .board-wrapper {
+            position: relative;
+        }
+
+        canvas {
+            border: 3px solid #334155;
+            background-color: #0f172a;
+            display: block;
+            border-radius: 8px;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+        }
+
+        .side-panel {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            width: 160px;
+        }
+
+        .info-box {
+            background: rgba(30, 41, 59, 0.8);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            text-align: center;
+        }
+
+        .info-box h3 {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .info-box span {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #38bdf8;
+        }
+
+        .next-canvas {
+            background: #0f172a;
+            border: 2px solid #334155;
+            border-radius: 6px;
+            margin: 0 auto;
+            display: block;
+        }
+
+        .controls-hint {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            line-height: 1.5;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 10px;
+            border-radius: 6px;
+        }
+
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            width: 100%;
+            margin-bottom: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+
+        .btn:hover {
+            background: #2563eb;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-secondary {
+            background: #475569;
+        }
+        .btn-secondary:hover {
+            background: #334155;
+        }
+
+        /* 모바일 터치 패드 */
+        .mobile-controls {
+            display: none;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 15px;
+            width: 100%;
+            max-width: 320px;
+        }
+
+        .mobile-controls button {
+            background: rgba(51, 65, 85, 0.9);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 15px 0;
+            font-size: 1.2rem;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .mobile-controls button:active {
+            background: #3b82f6;
+        }
+
+        @media (max-width: 650px) {
+            .game-container {
+                flex-direction: column;
+                align-items: center;
+                padding: 15px;
+            }
+            .side-panel {
+                width: 100%;
+                max-width: 300px;
+            }
+            .mobile-controls {
+                display: grid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay"></div>
+
+    <!-- 배경음악 오디오 태그 (music.mp3) -->
+    <audio id="bgm" src="music.mp3" loop></audio>
+
+    <div class="game-container">
+        <div class="board-wrapper">
+            <canvas id="tetris" width="300" height="600"></canvas>
+        </div>
+
+        <div class="side-panel">
+            <div>
+                <div class="info-box">
+                    <h3>Score</h3>
+                    <span id="score">0</span>
+                </div>
+                <div class="info-box">
+                    <h3>Lines / Level</h3>
+                    <span id="lines">0</span> / <span id="level">1</span>
+                </div>
+                <div class="info-box">
+                    <h3>Next Piece</h3>
+                    <canvas id="next" width="100" height="100" class="next-canvas"></canvas>
+                </div>
+            </div>
+
+            <div>
+                <button class="btn" id="startBtn">게임 시작 / 일시정지</button>
+                <button class="btn btn-secondary" id="bgmBtn">BGM: 끄기</button>
+                <div class="controls-hint">
+                    <b>이동:</b> ← → 또는 A / D<br>
+                    <b>회전:</b> ↑ 또는 W<br>
+                    <b>내리기:</b> ↓ 또는 S<br>
+                    <b>즉시낙하:</b> 스페이스바<br>
+                    <b>일시정지:</b> P
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 모바일 조작 버튼 -->
+    <div class="mobile-controls">
+        <button onclick="movePiece(-1)">◀</button>
+        <button onclick="rotatePiece()">↻</button>
+        <button onclick="movePiece(1)">▶</button>
+        <button onclick="dropPiece()">⬇</button>
+        <button onclick="hardDrop()">⏬</button>
+        <button onclick="togglePause()">⏸</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('tetris');
+        const context = canvas.getContext('2d');
+        const nextCanvas = document.getElementById('next');
+        const nextContext = nextCanvas.getContext('2d');
+
+        const BLOCK_SIZE = 30;
+        const COLS = 10;
+        const ROWS = 20;
+
+        context.scale(BLOCK_SIZE, BLOCK_SIZE);
+        nextContext.scale(BLOCK_SIZE, BLOCK_SIZE);
+
+        let score = 0;
+        let lines = 0;
+        let level = 1;
+        let dropInterval = 1000;
+        let dropCounter = 0;
+        let lastTime = 0;
+        let isPaused = false;
+        let isStarted = false;
+
+        // BGM 및 웹 오디오 효과음
+        const bgm = document.getElementById('bgm');
+        let bgmEnabled = true;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playSound(freq, type, duration) {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e) {}
+        }
+
+        function playBGM() {
+            if (bgmEnabled && isStarted && !isPaused) {
+                bgm.play().catch(e => {
+                    console.log("오디오 자동 재생이 제한되었습니다. 사용자 조작이 필요합니다.");
+                });
+            }
+        }
+
+        function pauseBGM() {
+            bgm.pause();
+        }
+
+        const arena = createMatrix(COLS, ROWS);
+
+        function createMatrix(w, h) {
+            const matrix = [];
+            while (h--) {
+                matrix.push(new Array(w).fill(0));
+            }
+            return matrix;
+        }
+
+        function createPiece(type) {
+            if (type === 'T') return [[0, 1, 0], [1, 1, 1], [0, 0, 0]];
+            if (type === 'O') return [[2, 2], [2, 2]];
+            if (type === 'L') return [[0, 0, 3], [3, 3, 3], [0, 0, 0]];
+            if (type === 'J') return [[4, 0, 0], [4, 4, 4], [0, 0, 0]];
+            if (type === 'I') return [[0, 0, 0, 0], [5, 5, 5, 5], [0, 0, 0, 0], [0, 0, 0, 0]];
+            if (type === 'S') return [[0, 6, 6], [6, 6, 0], [0, 0, 0]];
+            if (type === 'Z') return [[7, 7, 0], [0, 7, 7], [0, 0, 0]];
+        }
+
+        const colors = [
+            null,
+            '#a855f7', // T - 보라
+            '#eab308', // O - 노랑
+            '#f97316', // L - 주황
+            '#3b82f6', // J - 파랑
+            '#06b6d4', // I - 하늘
+            '#22c55e', // S - 초록
+            '#ef4444'  // Z - 빨강
+        ];
+
+        const player = {
+            pos: {x: 0, y: 0},
+            matrix: null,
+            score: 0,
+        };
+
+        const nextPlayer = {
+            matrix: null,
+        };
+
+        function resetPlayer() {
+            const pieces = 'TJLOSZI';
+            if (nextPlayer.matrix === null) {
+                nextPlayer.matrix = createPiece(pieces[(pieces.length * Math.random()) | 0]);
+            }
+            player.matrix = nextPlayer.matrix;
+            nextPlayer.matrix = createPiece(pieces[(pieces.length * Math.random()) | 0]);
+            
+            player.pos.y = 0;
+            player.pos.x = ((arena[0].length / 2) | 0) - ((player.matrix[0].length / 2) | 0);
+
+            if (collide(arena, player)) {
+                arena.forEach(row => row.fill(0));
+                score = 0;
+                lines = 0;
+                level = 1;
+                dropInterval = 1000;
+                updateScore();
+                isStarted = false;
+                pauseBGM();
+                bgm.currentTime = 0;
+                alert('게임 오버!');
+            }
+        }
+
+        function collide(arena, player) {
+            const [m, o] = [player.matrix, player.pos];
+            for (let y = 0; y < m.length; ++y) {
+                for (let x = 0; x < m[y].length; ++x) {
+                    if (m[y][x] !== 0 &&
+                       (arena[y + o.y] && arena[y + o.y][x + o.x]) !== 0) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        function merge(arena, player) {
+            player.matrix.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value !== 0) {
+                        arena[y + player.pos.y][x + player.pos.x] = value;
+                    }
+                });
+            });
+        }
+
+        function rotate(matrix, dir) {
+            for (let y = 0; y < matrix.length; ++y) {
+                for (let x = 0; x < y; ++x) {
+                    [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
+                }
+            }
+            if (dir > 0) {
+                matrix.forEach(row => row.reverse());
+            } else {
+                matrix.reverse();
+            }
+        }
+
+        function rotatePiece() {
+            playerRotate(1);
+        }
+
+        function playerRotate(dir) {
+            if (!isStarted || isPaused) return;
+            const posX = player.pos.x;
+            let offset = 1;
+            rotate(player.matrix, dir);
+            while (collide(arena, player)) {
+                player.pos.x += offset;
+                offset = -(offset + (offset > 0 ? 1 : -1));
+                if (offset > player.matrix[0].length) {
+                    rotate(player.matrix, -dir);
+                    player.pos.x = posX;
+                    return;
+                }
+            }
+            playSound(400, 'sine', 0.05);
+        }
+
+        function playerDrop() {
+            player.pos.y++;
+            if (collide(arena, player)) {
+                player.pos.y--;
+                merge(arena, player);
+                resetPlayer();
+                arenaSweep();
+                updateScore();
+                playSound(150, 'sawtooth', 0.1);
+            }
+            dropCounter = 0;
+        }
+
+        function hardDrop() {
+            if (!isStarted || isPaused) return;
+            while (!collide(arena, player)) {
+                player.pos.y++;
+            }
+            player.pos.y--;
+            merge(arena, player);
+            resetPlayer();
+            arenaSweep();
+            updateScore();
+            dropCounter = 0;
+            playSound(220, 'square', 0.15);
+        }
+
+        function movePiece(dir) {
+            if (!isStarted || isPaused) return;
+            player.pos.x += dir;
+            if (collide(arena, player)) {
+                player.pos.x -= dir;
+            } else {
+                playSound(300, 'sine', 0.03);
+            }
+        }
+
+        function dropPiece() {
+            if (!isStarted || isPaused) return;
+            playerDrop();
+        }
+
+        function togglePause() {
+            if (!isStarted) return;
+            isPaused = !isPaused;
+            if (isPaused) {
+                pauseBGM();
+            } else {
+                playBGM();
+            }
+        }
+
+        function arenaSweep() {
+            let rowCount = 1;
+            outer: for (let y = arena.length - 1; y > 0; --y) {
+                for (let x = 0; x < arena[y].length; ++x) {
+                    if (arena[y][x] === 0) {
+                        continue outer;
+                    }
+                }
+                const row = arena.splice(y, 1)[0].fill(0);
+                arena.unshift(row);
+                ++y;
+
+                score += rowCount * 100;
+                lines++;
+                rowCount *= 2;
+                playSound(600, 'triangle', 0.2);
+            }
+            level = Math.floor(lines / 5) + 1;
+            dropInterval = Math.max(150, 1000 - (level - 1) * 120);
+        }
+
+        function drawMatrix(matrix, offset, ctx = context) {
+            matrix.forEach((row, y) => {
+                row.forEach((value, x) => {
+                    if (value !== 0) {
+                        ctx.fillStyle = colors[value];
+                        ctx.fillRect(x + offset.x, y + offset.y, 1, 1);
+                        ctx.strokeStyle = '#0f172a';
+                        ctx.lineWidth = 0.05;
+                        ctx.strokeRect(x + offset.x, y + offset.y, 1, 1);
+                    }
+                });
+            });
+        }
+
+        function draw() {
+            context.fillStyle = '#0f172a';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+
+            drawMatrix(arena, {x: 0, y: 0});
+            if (isStarted) {
+                drawMatrix(player.matrix, player.pos);
+            }
+
+            nextContext.fillStyle = '#0f172a';
+            nextContext.fillRect(0, 0, nextCanvas.width, nextCanvas.height);
+            if (nextPlayer.matrix) {
+                const matrix = nextPlayer.matrix;
+                const offsetX = (nextCanvas.width / BLOCK_SIZE - matrix[0].length) / 2;
+                const offsetY = (nextCanvas.height / BLOCK_SIZE - matrix.length) / 2;
+                drawMatrix(matrix, {x: offsetX, y: offsetY}, nextContext);
+            }
+        }
+
+        function updateScore() {
+            document.getElementById('score').innerText = score;
+            document.getElementById('lines').innerText = lines;
+            document.getElementById('level').innerText = level;
+        }
+
+        function update(time = 0) {
+            if (isStarted && !isPaused) {
+                const deltaTime = time - lastTime;
+                dropCounter += deltaTime;
+                if (dropCounter > dropInterval) {
+                    playerDrop();
+                }
+            }
+            lastTime = time;
+            draw();
+            requestAnimationFrame(update);
+        }
+
+        document.addEventListener('keydown', event => {
+            if (!isStarted && event.key !== 'Enter') return;
+
+            if (event.key === 'ArrowLeft' || event.key === 'a' || event.key === 'A') {
+                movePiece(-1);
+            } else if (event.key === 'ArrowRight' || event.key === 'd' || event.key === 'D') {
+                movePiece(1);
+            } else if (event.key === 'ArrowDown' || event.key === 's' || event.key === 'S') {
+                playerDrop();
+            } else if (event.key === 'ArrowUp' || event.key === 'w' || event.key === 'W') {
+                rotatePiece();
+            } else if (event.key === ' ') {
+                hardDrop();
+            } else if (event.key === 'p' || event.key === 'P') {
+                togglePause();
+            }
+        });
+
+        document.getElementById('startBtn').addEventListener('click', () => {
+            initAudio();
+            if (!isStarted) {
+                arena.forEach(row => row.fill(0));
+                score = 0;
+                lines = 0;
+                level = 1;
+                dropInterval = 1000;
+                updateScore();
+                resetPlayer();
+                isStarted = true;
+                isPaused = false;
+                bgm.currentTime = 0;
+                playBGM();
+            } else {
+                togglePause();
+            }
+        });
+
+        document.getElementById('bgmBtn').addEventListener('click', () => {
+            bgmEnabled = !bgmEnabled;
+            const btn = document.getElementById('bgmBtn');
+            if (bgmEnabled) {
+                btn.innerText = "BGM: 끄기";
+                playBGM();
+            } else {
+                btn.innerText = "BGM: 켜기";
+                pauseBGM();
+            }
+        });
+
+        update();
+    </script>
+</body>
+</html>
